@@ -151,4 +151,19 @@
     <string name="batch_cloning">Cloning…</string>
     <string name="batch_clone_preparing">Reading current workspace app lists…</string>
     <string name="batch_clone_summary">Installed %1$d, uninstalled %2$d, skipped %3$d</string>
+
+    <string name="shortcut_add">Add to home screen</string>
+    <string name="shortcut_unsupported">This launcher does not support pinning shortcuts.</string>
+    <string name="shortcut_identity_missing">Workspace identity is unavailable. Refresh workspaces first.</string>
+    <string name="shortcut_request_sent">Request sent to the launcher. Confirm adding the shortcut if prompted.</string>
+    <string name="shortcut_opening">Opening %1$s…</string>
+    <string name="shortcut_invalid">This shortcut is not registered. Add it again from AppDual.</string>
+    <string name="shortcut_shizuku_unavailable">Start Shizuku, then tap the shortcut again.</string>
+    <string name="shortcut_permission_denied">Allow AppDual to use Shizuku, then try again.</string>
+    <string name="shortcut_space_changed">The original workspace was deleted or changed. Add a new shortcut.</string>
+    <string name="shortcut_space_locked">The workspace is locked or paused. Unlock or resume it in system settings first.</string>
+    <string name="shortcut_app_missing">The app is unavailable in this workspace.</string>
+    <string name="shortcut_failed">Unable to open shortcut</string>
+    <string name="shortcut_open_appdual">Open AppDual</string>
+    <string name="unlock_workspace_button">Unlock / resume</string>
 </resources>

@@ -10,7 +10,7 @@ import rikka.shizuku.Shizuku.UserServiceArgs
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.Executors
 
-class ShellClient(private val context: Context) : IShellExecutor {
+class ShellClient(private val context: Context, private val removeServiceOnUnbind: Boolean = true) : IShellExecutor {
     @Volatile
     private var service: IRunCmdService? = null
     @Volatile
@@ -85,7 +85,7 @@ class ShellClient(private val context: Context) : IShellExecutor {
                 val userServiceArgs = UserServiceArgs(
                     ComponentName(context.packageName, RunCmdUserService::class.java.name)
                 )
-                Shizuku.unbindUserService(userServiceArgs, conn, true)
+                Shizuku.unbindUserService(userServiceArgs, conn, removeServiceOnUnbind)
                 DebugLog.trace(context, "Service unbound successfully")
             } catch (e: Exception) {
                 DebugLog.trace(context, "Error unbinding: ${e.message}")
@@ -99,7 +99,7 @@ class ShellClient(private val context: Context) : IShellExecutor {
 
     /** Always calls callback. If not connected yet, queues and waits. */
     override fun execWhenReady(cmd: String, callback: (String) -> Unit) {
-        DebugLog.trace(context, "execWhenReady: cmd=$cmd serviceNull=${service == null} binding=$binding")
+        DebugLog.trace(context, "execWhenReady: command submitted serviceNull=${service == null} binding=$binding")
 
         // If already connected, run now
         val sNow = service
@@ -144,7 +144,7 @@ class ShellClient(private val context: Context) : IShellExecutor {
     }
 
     fun exec(cmd: String, callback: (String) -> Unit) {
-        DebugLog.trace(context, "ShellClient.exec(): cmd=$cmd serviceNull=${service == null}")
+        DebugLog.trace(context, "ShellClient.exec(): command submitted serviceNull=${service == null}")
 
         val s = service
         if (s == null) {
@@ -155,7 +155,7 @@ class ShellClient(private val context: Context) : IShellExecutor {
 
         bg.execute {
             val result = try {
-                DebugLog.trace(context, "Executing command: $cmd")
+                DebugLog.trace(context, "Executing shell command")
                 s.run(cmd)
             } catch (e: RemoteException) {
                 val msg = "ERROR: RemoteException: ${e.message}"

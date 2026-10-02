@@ -125,7 +125,21 @@ class MainActivity : AppCompatActivity() {
 
         repo = AppRepository(this)
         loadAppsUser0()
+        Shizuku.addRequestPermissionResultListener(permissionListener)
+        Shizuku.addBinderReceivedListenerSticky(binderReceivedListener)
         initializeExecution()
+    }
+
+    private var appsReloadedWithFocus = false
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        // HyperOS 的应用列表授权可能仅前台有效；onCreate 早期查询会只返回本应用。
+        // 首次获得焦点后补查一次，避免用户每次都需要切换分类才能看到微信。
+        if (hasFocus && ::repo.isInitialized && !appsReloadedWithFocus && cachedFullList.size <= 1) {
+            appsReloadedWithFocus = true
+            loadAppsUser0()
+        }
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
@@ -242,6 +256,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        Shizuku.removeBinderReceivedListener(binderReceivedListener)
         Shizuku.removeRequestPermissionResultListener(permissionListener)
         if (::shell.isInitialized) runCatching { shell.unbind() }
         bg.shutdown()
@@ -315,7 +330,8 @@ class MainActivity : AppCompatActivity() {
         wsAdapter = WorkspaceAdapter(
             onStart  = { ws -> doStartWorkspace(ws) },
             onStop   = { ws -> doStopWorkspace(ws) },
-            onRemove = { ws -> confirmRemoveWorkspace(ws) }
+            onRemove = { ws -> confirmRemoveWorkspace(ws) },
+            onRepair = { ws -> repairWorkspace(ws) }
         )
         binding.rvWorkspaces.layoutManager = LinearLayoutManager(this)
         binding.rvWorkspaces.adapter       = wsAdapter
@@ -325,7 +341,17 @@ class MainActivity : AppCompatActivity() {
         binding.btnCreateWorkspace.setOnClickListener {
             if (!requireShellOrToast()) return@setOnClickListener
             val name = wsRepo.suggestName(cachedWorkspaces, "Work")
-            doCreateWorkspace(name, "managed")
+            MaterialAlertDialogBuilder(this).setTitle("创建空间")
+                .setItems(arrayOf("标准工作资料（Android provisioning）", "实验多工作空间（Shizuku / Root）", "私密空间（Android 15+）")) { _, which ->
+                    when (which) {
+                        0 -> provisionStandardWorkspace()
+                        1 -> doCreateWorkspace(name, "managed")
+                        else -> {
+                            if (android.os.Build.VERSION.SDK_INT < 35) showWorkspaceDiagnostics("Private profiles require Android 15+")
+                            else doCreateWorkspace(wsRepo.suggestName(cachedWorkspaces, "Private"), "private")
+                        }
+                    }
+                }.show()
         }
         binding.btnCreateWorkspace.setOnLongClickListener {
             if (requireShellOrToast()) promptCreateWorkspaceName("managed")
@@ -563,6 +589,10 @@ class MainActivity : AppCompatActivity() {
     //  Shizuku initialisation
     // ════════════════════════════════════════════════════════════════════════
 
+    private val binderReceivedListener = Shizuku.OnBinderReceivedListener {
+        runOnUiThread { if (!isInitialized && !Prefs.useRoot(this)) checkShizukuAndInitialize() }
+    }
+
     private val permissionListener = Shizuku.OnRequestPermissionResultListener { code, result ->
         if (code == REQUEST_SHIZUKU_PERMISSION) {
             runOnUiThread {
@@ -581,7 +611,6 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, getString(R.string.shi_not_run), Toast.LENGTH_LONG).show()
             return
         }
-        Shizuku.addRequestPermissionResultListener(permissionListener)
         if (Shizuku.checkSelfPermission() != PackageManager.PERMISSION_GRANTED) {
             Shizuku.requestPermission(REQUEST_SHIZUKU_PERMISSION)
         } else {
@@ -593,7 +622,7 @@ class MainActivity : AppCompatActivity() {
         if (isInitialized) return
         try {
             shell    = ShellClient(this)
-            wsRepo   = WorkspaceRepository(shell)
+            wsRepo   = WorkspaceRepository(shell, packageName)
             isInitialized = true
             updateAllWorkspaceStatuses()
         } catch (e: Exception) {
@@ -627,7 +656,7 @@ class MainActivity : AppCompatActivity() {
                 }
                 try {
                     shell  = RootShellClient(this)
-                    wsRepo = WorkspaceRepository(shell)
+                    wsRepo = WorkspaceRepository(shell, packageName)
                     isInitialized = true
                     updateAllWorkspaceStatuses()
                 } catch (e: Exception) {
@@ -841,10 +870,44 @@ class MainActivity : AppCompatActivity() {
                         }
                     }
                 } else {
-                    Toast.makeText(this, getString(R.string.failed_to_create_workspace, output), Toast.LENGTH_LONG).show()
+                    showWorkspaceDiagnostics(output)
                 }
             }
         }
+    }
+
+    private fun showWorkspaceDiagnostics(output: String) {
+        MaterialAlertDialogBuilder(this).setTitle("Workspace diagnostics / 工作空间诊断")
+            .setMessage(output).setPositiveButton(android.R.string.ok, null).show()
+        binding.tvDevOutput.text = output
+    }
+
+    private fun repairWorkspace(ws: WorkspaceInfo) {
+        wsRepo.repairWorkspace(ws) { _, _, output -> runOnUiThread {
+            showWorkspaceDiagnostics(output)
+            loadWorkspaces()
+        } }
+    }
+
+    private val standardProvisioningLauncher = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (::wsRepo.isInitialized) loadWorkspaces()
+        if (result.resultCode != RESULT_OK) showWorkspaceDiagnostics("Standard provisioning was cancelled or rejected by Android.")
+    }
+
+    private fun provisionStandardWorkspace() {
+        val policy = getSystemService(android.app.admin.DevicePolicyManager::class.java)
+        val action = android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_PROFILE
+        if (!policy.isProvisioningAllowed(action)) {
+            showWorkspaceDiagnostics("Android does not allow another standard managed profile. Existing profiles are preserved. / 系统不允许创建另一标准工作资料；已有资料不会被删除。")
+            return
+        }
+        val intent = android.content.Intent(action).putExtra(
+            android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME,
+            android.content.ComponentName(this, AppDualDeviceAdminReceiver::class.java))
+        try { standardProvisioningLauncher.launch(intent) }
+        catch (e: Exception) { showWorkspaceDiagnostics("Standard provisioning: ${e.message}") }
     }
 
     private fun confirmRemoveWorkspace(ws: WorkspaceInfo) {
@@ -883,7 +946,7 @@ class MainActivity : AppCompatActivity() {
                 if (success) {
                     loadWorkspaces()
                 } else {
-                    Toast.makeText(this, getString(R.string.failed_generic, output), Toast.LENGTH_LONG).show()
+                    MaterialAlertDialogBuilder(this).setTitle(R.string.shortcut_failed).setMessage(output).setPositiveButton(android.R.string.ok, null).show()
                 }
             }
         }
@@ -913,6 +976,17 @@ class MainActivity : AppCompatActivity() {
 
     private fun launchApp(userId: Int, packageName: String) {
         if (!requireShellOrToast()) return
+        val workspace = cachedWorkspaces.find { it.userId == userId }
+        if (workspace != null && workspace.serialNumber != null) {
+            val item = cachedFullList.find { it.packageName == packageName }
+            if (item != null) {
+                val target = WorkspaceShortcuts.register(this, workspace, item)
+                if (WorkspaceDisplayModes.get(this, target) == WorkspaceDisplayMode.TABLET) {
+                    startActivity(android.content.Intent(this, WorkspaceDisplayActivity::class.java).putExtra(WorkspaceShortcuts.EXTRA_ID, target.id).setData(android.net.Uri.parse("appdual-display://target/${android.net.Uri.encode(target.id)}")).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+                    return
+                }
+            }
+        }
         val component = getLauncherComponent(packageName)
         if (component == null) {
             Toast.makeText(this, getString(R.string.no_launcher_found), Toast.LENGTH_SHORT).show()
@@ -920,7 +994,7 @@ class MainActivity : AppCompatActivity() {
         }
         wsRepo.launchInWorkspace(userId, component) { success, output ->
             runOnUiThread {
-                if (!success) Toast.makeText(this, getString(R.string.launch_failed, output), Toast.LENGTH_LONG).show()
+                if (!success) MaterialAlertDialogBuilder(this).setTitle(R.string.shortcut_failed).setMessage(output).setPositiveButton(android.R.string.ok, null).show()
             }
         }
     }
@@ -1048,6 +1122,14 @@ class MainActivity : AppCompatActivity() {
                 )
                 btnWsLaunch.isEnabled = installed && running
                 btnWsAppInfo.isEnabled = installed
+                btnWsShortcut.isVisible = ws.isProfile
+                btnWsShortcut.isEnabled = installed && ws.serialNumber != null
+                btnWsDisplayMode.isVisible = ws.isProfile
+                btnWsDisplayMode.isEnabled = installed && ws.serialNumber != null
+                if (ws.serialNumber != null) {
+                    val configured = WorkspaceShortcutTarget(ws.userId, ws.serialNumber, item.packageName, "${item.label}·${ws.displayName}")
+                    btnWsDisplayMode.text = if (WorkspaceDisplayModes.get(this@MainActivity, configured) == WorkspaceDisplayMode.TABLET) "显示模式：平板（实验）" else "显示模式：手机"
+                }
             }
         }
 
@@ -1088,6 +1170,30 @@ class MainActivity : AppCompatActivity() {
         row.btnWsLaunch.setOnClickListener {
             dialog.dismiss()
             launchApp(ws.userId, item.packageName)
+        }
+
+        row.btnWsDisplayMode.setOnClickListener {
+            val target = WorkspaceShortcuts.register(this, ws, item)
+            var selection = if (WorkspaceDisplayModes.get(this, target) == WorkspaceDisplayMode.TABLET) 1 else 0
+            MaterialAlertDialogBuilder(this).setTitle("${item.label} · ${ws.displayName}\n切换会重启该实例，不清数据")
+                .setSingleChoiceItems(arrayOf("手机模式", "平板显示（实验；双端登录需微信允许）"), selection) { _, which -> selection = which }
+                .setPositiveButton("应用并重启") { _, _ ->
+                    WorkspaceDisplayModes.set(this, target, if (selection == 1) WorkspaceDisplayMode.TABLET else WorkspaceDisplayMode.PHONE)
+                    dialog.dismiss()
+                    if (selection == 1) launchApp(ws.userId, item.packageName)
+                    else shell.execWhenReady("am force-stop --user ${ws.userId} ${ShellResult.quote(item.packageName)}") { result -> runOnUiThread {
+                        if (ShellResult.parse("", result).successful) launchApp(ws.userId, item.packageName)
+                        else showWorkspaceDiagnostics(result)
+                    } }
+                }.setNegativeButton(android.R.string.cancel, null).show()
+        }
+
+        row.btnWsShortcut.setOnClickListener {
+            try {
+                WorkspaceShortcuts.request(this, ws, item)
+                dialog.dismiss()
+                Toast.makeText(this, R.string.shortcut_request_sent, Toast.LENGTH_LONG).show()
+            } catch (e: Exception) { showWorkspaceDiagnostics(e.message.orEmpty()) }
         }
 
         row.btnWsAppInfo.setOnClickListener {

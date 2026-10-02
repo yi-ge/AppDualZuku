@@ -124,4 +124,19 @@
     <string name="batch_cloning">正在克隆……</string>
     <string name="batch_clone_preparing">正在读取工作空间当前应用列表……</string>
     <string name="batch_clone_summary">已安装 %1$d 个，已卸载 %2$d 个，跳过 %3$d 个</string>
+
+    <string name="shortcut_add">添加桌面快捷方式</string>
+    <string name="shortcut_unsupported">当前桌面不支持添加快捷方式。</string>
+    <string name="shortcut_identity_missing">无法确认空间身份，请先刷新工作空间。</string>
+    <string name="shortcut_request_sent">已向桌面发送添加请求；如出现确认页面，请确认添加。</string>
+    <string name="shortcut_opening">正在打开 %1$s…</string>
+    <string name="shortcut_invalid">快捷方式无效，请从 AppDual 重新添加。</string>
+    <string name="shortcut_shizuku_unavailable">请先启动 Shizuku，再点击快捷方式。</string>
+    <string name="shortcut_permission_denied">请允许 AppDual 使用 Shizuku 后重试。</string>
+    <string name="shortcut_space_changed">原空间已删除或变更，请重新添加快捷方式。</string>
+    <string name="shortcut_space_locked">空间已锁定或暂停，请先在系统中解锁或恢复。</string>
+    <string name="shortcut_app_missing">该空间中的应用不可用。</string>
+    <string name="shortcut_failed">无法打开快捷方式</string>
+    <string name="shortcut_open_appdual">打开 AppDual</string>
+    <string name="unlock_workspace_button">解锁 / 解除暂停</string>
 </resources>

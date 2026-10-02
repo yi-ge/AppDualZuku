@@ -28,22 +28,20 @@ class RunCmdUserService : IRunCmdService.Stub() {
                 .redirectErrorStream(false)
                 .start()
 
-            // Avoid hanging forever
-            val finished = p.waitFor(15, TimeUnit.SECONDS)
-            if (!finished) {
-                runCatching { p.destroy() }
-                return "exitCode=TIMEOUT\ncmd=$cmd"
+            // 同时排空两个管道，避免 dumpsys 等大输出填满管道而假超时。
+            val readers = java.util.concurrent.Executors.newFixedThreadPool(2)
+            try {
+                val out = readers.submit<String> { p.inputStream.bufferedReader().use { it.readText() } }
+                val err = readers.submit<String> { p.errorStream.bufferedReader().use { it.readText() } }
+                if (!p.waitFor(45, TimeUnit.SECONDS)) {
+                    p.destroyForcibly()
+                    return ShellResult(cmd, null, "", "Command timed out after 45s").render()
+                }
+                ShellResult(cmd, p.exitValue(), out.get(2, TimeUnit.SECONDS).trim(),
+                    err.get(2, TimeUnit.SECONDS).trim()).render()
+            } finally {
+                readers.shutdownNow()
             }
-
-            val stdout = BufferedReader(InputStreamReader(p.inputStream)).readText()
-            val stderr = BufferedReader(InputStreamReader(p.errorStream)).readText()
-            val code = p.exitValue()
-
-            buildString {
-                append("exitCode=").append(code).append('\n')
-                if (stdout.isNotBlank()) append("stdout:\n").append(stdout.trim()).append('\n')
-                if (stderr.isNotBlank()) append("stderr:\n").append(stderr.trim()).append('\n')
-            }.trim()
         } catch (t: Throwable) {
             "ERROR: ${t.javaClass.simpleName}: ${t.message}"
         }

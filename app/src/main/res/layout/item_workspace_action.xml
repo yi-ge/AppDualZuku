@@ -75,4 +75,13 @@
 
     </LinearLayout>
 
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnWsDisplayMode" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:text="显示模式：手机"
+        style="@style/Widget.Material3.Button.OutlinedButton" />
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnWsShortcut" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:text="@string/shortcut_add"
+        app:icon="@android:drawable/ic_menu_add"
+        style="@style/Widget.Material3.Button.OutlinedButton" />
 </LinearLayout>

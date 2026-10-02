@@ -11,9 +11,14 @@ android {
     defaultConfig {
         applicationId = "com.nathanhanapps.appdual"
         minSdk = 31
+        // USB 诊断可与原签名应用并存，避免为测试卸载已有 AppDual。
+        if (providers.gradleProperty("diagnostic").orNull == "true") {
+            applicationIdSuffix = ".diagnostic"
+        }
+        manifestPlaceholders["appLabel"] = if (providers.gradleProperty("diagnostic").orNull == "true") "AppDual Dev" else "@string/app_name"
         targetSdk = 36
-        versionCode = 5
-        versionName = "1.5"
+        versionCode = 12
+        versionName = "1.12"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

@@ -117,7 +117,10 @@ class RootShellClient(private val context: Context) : IShellExecutor {
 
         val marker = "RSC_${System.nanoTime()}"
         return try {
-            out.writeBytes(cmd + "\n")
+            val script = "appdual_error_file=\$(mktemp) || exit 125; " +
+                "sh -c ${ShellResult.quote(cmd)} 2>\"\$appdual_error_file\"; appdual_result=\$?; " +
+                "printf '\\n${marker}_STDERR\\n'; cat \"\$appdual_error_file\"; rm -f \"\$appdual_error_file\"; exit \$appdual_result"
+            out.writeBytes("sh -c " + ShellResult.quote(script) + "\n")
             out.writeBytes("echo " + marker + ":\$?\n")
             out.flush()
 
@@ -147,13 +150,11 @@ class RootShellClient(private val context: Context) : IShellExecutor {
 
             if (timedOut) {
                 teardown() // shell may be wedged - drop it, next call restarts fresh
-                "exitCode=TIMEOUT\ncmd=$cmd"
+                "exitCode=TIMEOUT\ncommand submitted"
             } else {
-                buildString {
-                    if (exitCode != null) append("exitCode=").append(exitCode).append('\n')
-                    val body = output.toString().trim()
-                    if (body.isNotEmpty()) append("stdout:\n").append(body).append('\n')
-                }.trim()
+                val body = output.toString()
+                ShellResult(cmd, exitCode, body.substringBefore("${marker}_STDERR").trim(),
+                    body.substringAfter("${marker}_STDERR", "").trim()).render()
             }
         } catch (t: Throwable) {
             teardown()
@@ -162,7 +163,7 @@ class RootShellClient(private val context: Context) : IShellExecutor {
     }
 
     override fun execWhenReady(cmd: String, callback: (String) -> Unit) {
-        DebugLog.trace(context, "RootShellClient.execWhenReady(): cmd=$cmd")
+        DebugLog.trace(context, "RootShellClient.execWhenReady(): command submitted")
         cmdExecutor.execute {
             val result = runCommandBlocking(cmd)
             callback(result)
