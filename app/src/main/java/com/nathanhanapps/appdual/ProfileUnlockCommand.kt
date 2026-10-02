@@ -41,8 +41,19 @@ object ProfileUnlockProcess {
                 println("PAUSED"); return
             }
             if (!quiet && unlocked) { println("ACTIVE"); return }
-            // 已启动但仍锁定时，恢复系统解锁生命周期；不暂停任何已经解锁的空间。
-            if (!quiet) request.invoke(service, "com.android.shell", true, id, null, 0)
+            val privateProfile = info.javaClass.getField("userType").get(info) == "android.os.usertype.profile.PRIVATE"
+            // 私人资料的统一锁必须在资料运行时完成验证；重试不能再次暂停资料。
+            if (privateProfile && !unlocked) {
+                val start = ProcessBuilder("am", "start-user", id.toString()).redirectErrorStream(true).start()
+                val output = start.inputStream.bufferedReader().use { it.readText() }
+                check(start.waitFor() == 0 && !output.contains("Error:") && !output.contains("failed", true)) {
+                    "Profile start failed: $output"
+                }
+                val running = api.getMethod("isUserRunning", Int::class.javaPrimitiveType)
+                val deadline = android.os.SystemClock.elapsedRealtime() + 5000
+                while (running.invoke(service, id) != true && android.os.SystemClock.elapsedRealtime() < deadline) Thread.sleep(100)
+                check(running.invoke(service, id) == true) { "Profile did not start" }
+            }
             // flags=0 保留系统凭据校验，交由系统使用合法的统一锁缓存或弹出验证。
             val accepted = request.invoke(service, "com.android.shell", false, id, null, 0) == true
             println(if (accepted) "RESUMED" else "CREDENTIAL_REQUIRED")

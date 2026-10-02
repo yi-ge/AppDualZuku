@@ -128,6 +128,7 @@ class MainActivity : AppCompatActivity() {
         Shizuku.addRequestPermissionResultListener(permissionListener)
         Shizuku.addBinderReceivedListenerSticky(binderReceivedListener)
         initializeExecution()
+        if (intent.getStringExtra("appdual_page") == "spaces") binding.bottomNav.selectedItemId = R.id.nav_settings
     }
 
     private var appsReloadedWithFocus = false

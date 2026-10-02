@@ -5,8 +5,8 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:paddingTop="4dp"
-    android:paddingBottom="8dp">
+    android:paddingTop="12dp"
+    android:paddingBottom="12dp">
 
     <!-- Workspace name + installed chip -->
     <LinearLayout
@@ -48,6 +48,11 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
+            android:minWidth="0dp"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:textSize="13sp"
+            app:iconSize="18dp"
             android:text="@string/install"
             style="@style/Widget.Material3.Button.TonalButton" />
 
@@ -58,6 +63,11 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
+            android:minWidth="0dp"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:textSize="13sp"
+            app:iconSize="18dp"
             android:text="@string/launch"
             app:icon="@android:drawable/ic_media_play"
             style="@style/Widget.Material3.Button.TonalButton" />
@@ -69,6 +79,11 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
+            android:minWidth="0dp"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:textSize="13sp"
+            app:iconSize="18dp"
             android:text="@string/info"
             app:icon="@android:drawable/ic_menu_info_details"
             style="@style/Widget.Material3.Button.TonalButton" />

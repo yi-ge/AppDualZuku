@@ -15,6 +15,7 @@ import rikka.shizuku.Shizuku
 /** A brief launcher bridge: opens the registered profile app through the selected execution mode. */
 class WorkspaceShortcutActivity : AppCompatActivity() {
     private var shell: IShellExecutor? = null
+    private var openingStatus: TextView? = null
     private var target: WorkspaceShortcutTarget? = null
     private var started = false
     private var permissionPending = false
@@ -39,17 +40,26 @@ class WorkspaceShortcutActivity : AppCompatActivity() {
             finish()
             return
         }
-        setContentView(TextView(this).apply {
-            text = getString(R.string.shortcut_opening, configured.label)
-            gravity = Gravity.CENTER
-            textSize = 18f
-        })
+        setContentView(R.layout.activity_workspace_launch)
+        findViewById<TextView>(R.id.launchTitle).text = getString(R.string.workspace_launch_title, configured.label)
+        openingStatus = findViewById(R.id.launchStatus)
+        openingStatus?.text = getString(R.string.workspace_connecting)
+        findViewById<android.view.View>(R.id.launchOpenAppDual).setOnClickListener {
+            startActivity(Intent(this, MainActivity::class.java).putExtra("appdual_page", "spaces")); finish()
+        }
         Shizuku.addRequestPermissionResultListener(permissionListener)
         Shizuku.addBinderReceivedListenerSticky(binderListener)
         connect()
         handler.postDelayed({
             if (!started && !permissionPending && !isFinishing) fail(getString(R.string.shortcut_shizuku_unavailable))
-        }, 5000)
+        }, 15000)
+        // 服务刚启动时 Binder 可能尚未送达，启动页短暂重试而不是立即报未启动。
+        fun retryConnection(remaining: Int) {
+            if (remaining <= 0 || started || errorShown || isFinishing) return
+            connect()
+            handler.postDelayed({ retryConnection(remaining - 1) }, 500)
+        }
+        retryConnection(30)
     }
 
     private fun connect() {
@@ -107,20 +117,27 @@ class WorkspaceShortcutActivity : AppCompatActivity() {
                         }
                     }
                 }
-                WorkspaceRepository(requireNotNull(shell), packageName).startWorkspace(configured.userId) { ok, detail ->
-                    runOnUiThread { if (!isFinishing) { if (ok) resolve() else fail(detail) } }
+                WorkspaceRepository(requireNotNull(shell), packageName).startWorkspace(configured.userId, onProgress = { message ->
+                    runOnUiThread { if (!isFinishing && !errorShown) openingStatus?.text = message }
+                }) { ok, detail ->
+                    runOnUiThread { if (!isFinishing) { if (ok) resolve() else fail(detail, detail.contains("空间尚未解锁")) } }
                 }
             }
         }
     }
 
-    private fun fail(message: String) {
+    private fun fail(message: String, offerUnlockRetry: Boolean = false) {
         if (isFinishing || errorShown) return
         errorShown = true
-        MaterialAlertDialogBuilder(this).setTitle(R.string.shortcut_failed).setMessage(message)
+        val description = message + if (offerUnlockRetry) "\n\n可重新请求系统解锁。AppDual 不接触密码，也不会清除空间数据。" else ""
+        MaterialAlertDialogBuilder(this).setTitle(R.string.shortcut_failed).setMessage(description)
             .setPositiveButton(android.R.string.ok) { _, _ -> finish() }
-            .setNeutralButton(R.string.shortcut_open_appdual) { _, _ ->
-                startActivity(Intent(this, MainActivity::class.java)); finish()
+            .setNeutralButton(if (offerUnlockRetry) "重新请求解锁" else getString(R.string.shortcut_open_appdual)) { _, _ ->
+                if (offerUnlockRetry) {
+                    errorShown = false
+                    openingStatus?.text = "正在请求系统密码验证…"
+                    validateAndLaunch()
+                } else { startActivity(Intent(this, MainActivity::class.java).putExtra("appdual_page", "spaces")); finish() }
             }.setOnCancelListener { finish() }.show()
     }
 

@@ -10,6 +10,7 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:layout_marginBottom="80dp"
         android:orientation="vertical">
 
         <!-- Toolbar -->
@@ -307,6 +308,13 @@
                                     android:layout_width="0dp"
                                     android:layout_height="wrap_content"
                                     android:layout_weight="1"
+                                    android:minWidth="0dp"
+                                    android:maxLines="1"
+                                    android:textSize="14sp"
+                                    android:paddingStart="8dp"
+                                    android:paddingEnd="8dp"
+                                    app:iconSize="18dp"
+                                    app:iconPadding="4dp"
                                     android:text="@string/create_workspace"
                                     app:icon="@android:drawable/ic_input_add"
                                     style="@style/Widget.Material3.Button.TonalButton" />
@@ -318,6 +326,13 @@
                                     android:layout_width="0dp"
                                     android:layout_height="wrap_content"
                                     android:layout_weight="1"
+                                    android:minWidth="0dp"
+                                    android:maxLines="1"
+                                    android:textSize="14sp"
+                                    android:paddingStart="8dp"
+                                    android:paddingEnd="8dp"
+                                    app:iconSize="18dp"
+                                    app:iconPadding="4dp"
                                     android:text="@string/create_clone_workspace"
                                     app:icon="@android:drawable/ic_input_add"
                                     style="@style/Widget.Material3.Button.TonalButton" />

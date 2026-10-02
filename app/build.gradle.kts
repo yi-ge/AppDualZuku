@@ -17,8 +17,8 @@ android {
         }
         manifestPlaceholders["appLabel"] = if (providers.gradleProperty("diagnostic").orNull == "true") "AppDual Dev" else "@string/app_name"
         targetSdk = 36
-        versionCode = 12
-        versionName = "1.12"
+        versionCode = 15
+        versionName = "1.15"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

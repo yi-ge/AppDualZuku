@@ -135,7 +135,9 @@ class WorkspaceDisplayActivity : AppCompatActivity() {
                         } catch (e: Exception) { status.text = "平板显示失败：${e.message}" }
                     }
                 }
-                WorkspaceRepository(requireNotNull(shell), packageName).startWorkspace(configured.userId) { ok, detail ->
+                WorkspaceRepository(requireNotNull(shell), packageName).startWorkspace(configured.userId, onProgress = { message ->
+                    runOnUiThread { if (!closed && !isDestroyed) status.text = message }
+                }) { ok, detail ->
                     runOnUiThread { if (!closed && !isDestroyed) { if (ok) resolve() else status.text = detail } }
                 }
             }

@@ -166,4 +166,20 @@
     <string name="shortcut_failed">Unable to open shortcut</string>
     <string name="shortcut_open_appdual">Open AppDual</string>
     <string name="unlock_workspace_button">Unlock / resume</string>
+    <string name="workspace_type_managed">Work profile</string>
+    <string name="workspace_type_private">Private space</string>
+    <string name="workspace_type_clone">Clone space</string>
+    <string name="workspace_type_other">Space</string>
+    <string name="workspace_needs_setup">Needs initialization</string>
+    <string name="workspace_initialized">Initialized</string>
+    <string name="workspace_locked_status">Locked</string>
+    <string name="workspace_paused_status">Paused</string>
+    <string name="workspace_started_status">Started</string>
+    <string name="workspace_repair_label">Repair initialization</string>
+    <string name="workspace_check_label">Check space</string>
+    <string name="workspace_remove_label">Delete space</string>
+    <string name="workspace_launch_title">Opening %1$s</string>
+    <string name="workspace_launch_help">Complete verification on the system screen. The app will open when the space is unlocked.</string>
+    <string name="workspace_launch_back">Open AppDual</string>
+    <string name="workspace_connecting">Connecting to Shizuku…</string>
 </resources>

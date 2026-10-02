@@ -167,15 +167,16 @@ class WorkspaceRepository(
         }
     }
 
-    fun startWorkspace(userId: Int, callback: (Boolean, String) -> Unit) {
+    fun startWorkspace(userId: Int, onProgress: (String) -> Unit = {}, callback: (Boolean, String) -> Unit) {
         if (userId <= 0) { callback(false, "请选择工作空间"); return }
+        onProgress("正在请求系统解锁空间…")
         val unlock = ProfileUnlockCommand.build(appPackage, userId)
         shell.execWhenReady(unlock) { output ->
             val result = ShellResult.parse(unlock, output)
             if (!result.successful) { callback(false, result.render()); return@execWhenReady }
             if (result.stdout.contains("CREDENTIAL_REQUIRED")) {
                 // 系统验证与资料启动是异步的。返回 false 只代表需要验证，不能立即判为失败。
-                waitForCredentialUnlock(userId, 0, callback)
+                waitForCredentialUnlock(userId, 0, onProgress, callback)
                 return@execWhenReady
             }
             val start = "am start-user $userId"
@@ -196,7 +197,7 @@ class WorkspaceRepository(
         }
     }
 
-    private fun waitForCredentialUnlock(userId: Int, attempt: Int, callback: (Boolean, String) -> Unit) {
+    private fun waitForCredentialUnlock(userId: Int, attempt: Int, onProgress: (String) -> Unit, callback: (Boolean, String) -> Unit) {
         if (!shell.isReady()) { callback(false, "执行服务已断开，请重新启动 Shizuku 后重试。"); return }
         val cmd = "am get-started-user-state $userId"
         shell.execWhenReady(cmd) { output ->
@@ -206,7 +207,12 @@ class WorkspaceRepository(
             } else if (attempt >= 120 || (!state.successful &&
                     !(state.stdout + state.stderr).contains("User is not started"))) {
                 callback(false, "空间尚未解锁。请完成系统身份验证后重试；不会清除数据。\n" + state.render())
-            } else scheduleUnlockCheck { waitForCredentialUnlock(userId, attempt + 1, callback) }
+            } else {
+                onProgress(if (state.stdout.trim() == "RUNNING_LOCKED")
+                    "系统尚未解锁空间。请在系统验证页面完成密码／图案验证；解锁主屏不等于解锁空间。"
+                    else "正在等待系统验证并启动空间…")
+                scheduleUnlockCheck { waitForCredentialUnlock(userId, attempt + 1, onProgress, callback) }
+            }
         }
     }
 

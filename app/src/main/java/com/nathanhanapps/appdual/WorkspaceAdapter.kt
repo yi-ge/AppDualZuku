@@ -42,16 +42,27 @@ class WorkspaceAdapter(
         fun bind(ws: WorkspaceInfo) {
             val ctx = itemView.context
             tvName.text = ws.displayName
-            tvMeta.text = ctx.getString(R.string.workspace_meta_format, ws.userId, ws.flags) + if (ws.isLegacy) " · Legacy / 未完整初始化" else if (ws.setupComplete == true && (ws.isPrivate || (ws.isManaged && ws.hasProfileOwner == true))) " · 已完整初始化" else ""
-
-            chipRunning.text      = if (ws.isRunning) ctx.getString(R.string.running) else ctx.getString(R.string.stopped)
-            chipRunning.isChecked = ws.isRunning
+            val type = ctx.getString(when {
+                ws.isPrivate -> R.string.workspace_type_private
+                ws.isManaged -> R.string.workspace_type_managed
+                ws.userType?.endsWith(".CLONE") == true -> R.string.workspace_type_clone
+                else -> R.string.workspace_type_other
+            })
+            tvMeta.text = type + if (ws.isLegacy) " · " + ctx.getString(R.string.workspace_needs_setup)
+                else if (ws.setupComplete == true) " · " + ctx.getString(R.string.workspace_initialized) else ""
+            chipRunning.text = ctx.getString(when {
+                ws.isQuietMode && ws.isPrivate -> R.string.workspace_locked_status
+                ws.isQuietMode -> R.string.workspace_paused_status
+                ws.isRunning -> R.string.workspace_started_status
+                else -> R.string.stopped
+            })
+            chipRunning.isChecked = false
 
             btnStartStop.text = if (ws.isQuietMode) ctx.getString(R.string.unlock_workspace_button) else if (ws.isRunning) ctx.getString(R.string.stop_button) else ctx.getString(R.string.start_button)
             btnStartStop.setOnClickListener { if (ws.isRunning && !ws.isQuietMode) onStop(ws) else onStart(ws) }
             val repair: MaterialButton = itemView.findViewById(R.id.btnWsRepair)
             repair.visibility = if (ws.isLegacy || ws.isPrivate || (ws.isManaged && ws.ownerComponent?.startsWith("${ctx.packageName}/") == true)) View.VISIBLE else View.GONE
-            repair.text = if (ws.isLegacy) "尝试修复工作空间" else "检查工作空间"
+            repair.text = ctx.getString(if (ws.isLegacy) R.string.workspace_repair_label else R.string.workspace_check_label)
             repair.setOnClickListener { onRepair(ws) }
             btnRemove.setOnClickListener { onRemove(ws) }
         }

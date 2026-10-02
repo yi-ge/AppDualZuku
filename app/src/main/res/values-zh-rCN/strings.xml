@@ -139,4 +139,20 @@
     <string name="shortcut_failed">无法打开快捷方式</string>
     <string name="shortcut_open_appdual">打开 AppDual</string>
     <string name="unlock_workspace_button">解锁 / 解除暂停</string>
+    <string name="workspace_type_managed">工作空间</string>
+    <string name="workspace_type_private">私人空间</string>
+    <string name="workspace_type_clone">分身空间</string>
+    <string name="workspace_type_other">应用空间</string>
+    <string name="workspace_needs_setup">待初始化</string>
+    <string name="workspace_initialized">已初始化</string>
+    <string name="workspace_locked_status">已锁定</string>
+    <string name="workspace_paused_status">已暂停</string>
+    <string name="workspace_started_status">已启动</string>
+    <string name="workspace_repair_label">修复初始化</string>
+    <string name="workspace_check_label">检查空间</string>
+    <string name="workspace_remove_label">删除空间</string>
+    <string name="workspace_launch_title">正在打开 %1$s</string>
+    <string name="workspace_launch_help">如需验证，请在系统页面完成。空间解锁后会自动打开应用。</string>
+    <string name="workspace_launch_back">返回 AppDual</string>
+    <string name="workspace_connecting">正在连接 Shizuku…</string>
 </resources>
