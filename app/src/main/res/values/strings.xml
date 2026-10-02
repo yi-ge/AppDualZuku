@@ -182,4 +182,6 @@
     <string name="workspace_launch_help">Complete verification on the system screen. The app will open when the space is unlocked.</string>
     <string name="workspace_launch_back">Open AppDual</string>
     <string name="workspace_connecting">Connecting to Shizuku…</string>
+    <string name="private_startup_policy">Private space startup policy</string>
+    <string name="workspace_compatibility_check">Compatibility check</string>
 </resources>

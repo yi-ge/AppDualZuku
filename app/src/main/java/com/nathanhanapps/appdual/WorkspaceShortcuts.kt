@@ -44,6 +44,42 @@ object WorkspaceShortcuts {
         check(manager.requestPinShortcut(shortcut, null)) { context.getString(R.string.shortcut_unsupported) }
     }
 
+    fun migrate(context: Context, workspaces: List<WorkspaceInfo>): Int {
+        val manager = context.getSystemService(ShortcutManager::class.java)
+        val preferences = context.getSharedPreferences(FILE, Context.MODE_PRIVATE)
+        val pinned = manager.pinnedShortcuts.associateBy { it.id }
+        val versions = context.getSharedPreferences("workspace_shortcut_migrations", Context.MODE_PRIVATE)
+        val parent = android.os.Process.myUid() / 100000
+        var changed = 0
+        for (id in preferences.all.keys) {
+            val original = read(context, id) ?: continue
+            val target = ShortcutMigration.resolve(original, workspaces.find { it.userId == original.userId }, parent) ?: continue
+            val shortcut = pinned[id]
+            val uri = android.net.Uri.parse("appdual-workspace://launch/${android.net.Uri.encode(id)}")
+            if (versions.getBoolean(id, false) && original.userType == target.userType && (shortcut == null || shortcut.intent?.data == uri)) continue
+            runCatching {
+                if (shortcut != null) {
+                    val launch = Intent(context, WorkspaceShortcutActivity::class.java).setAction(Intent.ACTION_VIEW)
+                        .setData(uri).putExtra(EXTRA_ID, id).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    val builder = ShortcutInfo.Builder(context, id).setActivity(ComponentName(context, MainActivity::class.java))
+                        .setShortLabel(target.label).setLongLabel(target.label).setIntent(launch)
+                    runCatching { context.packageManager.getApplicationIcon(target.packageName) }.getOrNull()?.let { icon ->
+                        val drawable = if (target.userType == "android.os.usertype.profile.MANAGED") context.packageManager.getUserBadgedIcon(icon,
+                            android.os.UserHandle.getUserHandleForUid(target.userId * 100000)) else icon
+                        builder.setIcon(Icon.createWithBitmap(drawable.toBitmap(192, 192)))
+                    }
+                    check(manager.updateShortcuts(listOf(builder.build())))
+                }
+                val json = JSONObject().put("userId", target.userId).put("serial", target.serialNumber)
+                    .put("package", target.packageName).put("label", target.label).put("userType", target.userType)
+                check(preferences.edit().putString(id, json.toString()).commit())
+                check(versions.edit().putBoolean(id, true).commit())
+                changed++
+            }.onFailure { DebugLog.trace(context, "Shortcut migration skipped $id: ${it.javaClass.simpleName}") }
+        }
+        return changed
+    }
+
     fun read(context: Context, id: String?): WorkspaceShortcutTarget? = runCatching {
         require(!id.isNullOrBlank())
         val stored = context.getSharedPreferences(FILE, Context.MODE_PRIVATE).getString(id, null) ?: return null

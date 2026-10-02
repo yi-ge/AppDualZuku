@@ -65,6 +65,10 @@
             android:layout_height="wrap_content" android:text="@string/workspace_repair_label"
             android:layout_marginTop="12dp"
             style="@style/Widget.Material3.Button.TextButton" />
+        <com.google.android.material.button.MaterialButton android:id="@+id/btnWsPrivatePolicy"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:visibility="gone" android:text="@string/private_startup_policy"
+            style="@style/Widget.Material3.Button.OutlinedButton" />
         <!-- Action buttons -->
         <LinearLayout
             android:layout_width="match_parent"

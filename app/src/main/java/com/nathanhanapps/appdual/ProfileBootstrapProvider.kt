@@ -12,10 +12,15 @@ class ProfileBootstrapProvider : ContentProvider() {
     override fun call(method: String, arg: String?, extras: Bundle?): Bundle {
         // ContentProvider.call 不会自动替我们落实所有 URI 权限，必须再次检查 Binder 调用者。
         requireNotNull(context).enforceCallingPermission(android.Manifest.permission.DUMP, "Shell/system bootstrap only")
+        if (method == "policy-capabilities") return Bundle().apply {
+            val ctx = requireNotNull(context)
+            putBoolean("supported", android.os.Build.VERSION.SDK_INT >= 35 && !ctx.getSystemService(android.os.UserManager::class.java).isProfile)
+            putBoolean("canWriteSecure", ctx.checkSelfPermission(android.Manifest.permission.WRITE_SECURE_SETTINGS) == android.content.pm.PackageManager.PERMISSION_GRANTED)
+        }
         if (method == "private-autolock-after-restart") return Bundle().apply {
             try {
                 val ctx = requireNotNull(context)
-                check(ctx.getSystemService(android.os.UserManager::class.java).isSystemUser)
+                check(android.os.Build.VERSION.SDK_INT >= 35 && !ctx.getSystemService(android.os.UserManager::class.java).isProfile)
                 check(ctx.checkSelfPermission(android.Manifest.permission.WRITE_SECURE_SETTINGS) == android.content.pm.PackageManager.PERMISSION_GRANTED)
                 // 仅使用 Android 的私人空间重启锁定选项，不修改全局 provisioning 或主用户密码。
                 check(android.provider.Settings.Secure.putInt(ctx.contentResolver, "private_space_auto_lock", 2))
@@ -29,7 +34,7 @@ class ProfileBootstrapProvider : ContentProvider() {
                 // 仅供已获 DUMP 权限的设备诊断工具创建独立图标；不改任何资料或应用数据。
                 val ctx = requireNotNull(context)
                 val users = ctx.getSystemService(android.os.UserManager::class.java)
-                check(users.isSystemUser) { "Use the main app" }
+                check(!users.isProfile) { "Use the parent app" }
                 val id = requireNotNull(extras).getInt("userId", -1)
                 require(id > 0 && id <= Int.MAX_VALUE / 100000)
                 val requestedHandle = android.os.UserHandle.getUserHandleForUid(id * 100000)

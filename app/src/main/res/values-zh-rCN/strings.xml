@@ -155,4 +155,6 @@
     <string name="workspace_launch_help">如需验证，请在系统页面完成。空间解锁后会自动打开应用。</string>
     <string name="workspace_launch_back">返回 AppDual</string>
     <string name="workspace_connecting">正在连接 Shizuku…</string>
+    <string name="private_startup_policy">私人空间启动策略</string>
+    <string name="workspace_compatibility_check">兼容性检查</string>
 </resources>

@@ -341,7 +341,8 @@ class MainActivity : AppCompatActivity() {
             onStart  = { ws -> doStartWorkspace(ws) },
             onStop   = { ws -> doStopWorkspace(ws) },
             onRemove = { ws -> confirmRemoveWorkspace(ws) },
-            onRepair = { ws -> repairWorkspace(ws) }
+            onRepair = { ws -> repairWorkspace(ws) },
+            onPrivatePolicy = { showPrivateStartupPolicy() }
         )
         binding.rvWorkspaces.layoutManager = LinearLayoutManager(this)
         binding.rvWorkspaces.adapter       = wsAdapter
@@ -349,16 +350,15 @@ class MainActivity : AppCompatActivity() {
 
         // ── Create workspace button (long-press to customize the name) ──────────
         binding.btnCreateWorkspace.setOnClickListener {
-            if (!requireShellOrToast()) return@setOnClickListener
-            val name = wsRepo.suggestName(cachedWorkspaces, "Work")
+            val name = if (::wsRepo.isInitialized) wsRepo.suggestName(cachedWorkspaces, "Work") else "Work"
             MaterialAlertDialogBuilder(this).setTitle("创建空间")
                 .setItems(arrayOf("标准工作资料（Android provisioning）", "实验多工作空间（Shizuku / Root）", "私密空间（Android 15+）")) { _, which ->
                     when (which) {
                         0 -> provisionStandardWorkspace()
-                        1 -> doCreateWorkspace(name, "managed")
+                        1 -> if (requireShellOrToast()) doCreateWorkspace(name, "managed")
                         else -> {
                             if (android.os.Build.VERSION.SDK_INT < 35) showWorkspaceDiagnostics("Private profiles require Android 15+")
-                            else doCreateWorkspace(wsRepo.suggestName(cachedWorkspaces, "Private"), "private")
+                            else if (requireShellOrToast()) doCreateWorkspace(wsRepo.suggestName(cachedWorkspaces, "Private"), "private")
                         }
                     }
                 }.show()
@@ -384,6 +384,7 @@ class MainActivity : AppCompatActivity() {
             if (::wsRepo.isInitialized) loadWorkspaces()
         }
 
+        binding.btnWorkspaceCompatibility.setOnClickListener { showWorkspaceCompatibility() }
         // ── Execution mode (root vs. Shizuku) card ───────────────────────────
         setupExecutionModeCard()
 
@@ -757,6 +758,7 @@ class MainActivity : AppCompatActivity() {
 
         wsRepo.listWorkspaces { workspaces ->
             cachedWorkspaces = workspaces
+            runCatching { WorkspaceShortcuts.migrate(this, workspaces) }
             runOnUiThread { refreshSpaceFilterChipsIfNeeded() }
             val managed = workspaces.filter { !it.isMainUser }
 
@@ -811,6 +813,7 @@ class MainActivity : AppCompatActivity() {
     private fun loadWorkspaces() {
         wsRepo.listWorkspaces { workspaces ->
             cachedWorkspaces = workspaces
+            runCatching { WorkspaceShortcuts.migrate(this, workspaces) }
             val managed = workspaces.filter { !it.isMainUser }
             runOnUiThread {
                 wsAdapter.submitList(managed)
@@ -947,6 +950,33 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
+    }
+
+    private fun showWorkspaceCompatibility() {
+        val manager = getSystemService(android.content.pm.ShortcutManager::class.java)
+        val base = "Android ${android.os.Build.VERSION.RELEASE} / API ${android.os.Build.VERSION.SDK_INT}\n" +
+            "标准工作资料启动：使用 LauncherApps，无需 Root\n" +
+            "桌面图标：${if (manager.isRequestPinShortcutSupported) "支持添加" else "桌面不支持"}\n" +
+            "私人资料：${if (android.os.Build.VERSION.SDK_INT >= 35) "版本满足要求，仍受 ROM 与数量限制" else "需要 Android 15+"}\n" +
+            "私人启动策略：需用户主动配置；设置保存不等于所有 ROM 已验证。\n接口存在不等于解锁行为已验证；系统不支持时保留现有资料并显示错误。\n"
+        if (!requireShellOrToast(silent = true)) { showWorkspaceDiagnostics(base + "解锁接口：尚未检测，请启动 Shizuku 或 Root 执行通道。"); return }
+        val cmd = WorkspaceCompatibility.command(packageName)
+        shell.execWhenReady(cmd) { output -> runOnUiThread {
+            if (!isFinishing && !isDestroyed) showWorkspaceDiagnostics(base + ShellResult.parse(cmd, output).render())
+        } }
+    }
+
+    private fun showPrivateStartupPolicy() {
+        MaterialAlertDialogBuilder(this).setTitle(R.string.private_startup_policy)
+            .setMessage("将私人空间设置为重启后锁定，之后需要单独启动。不会改变工作空间或主用户密码。需要 Shizuku／Root；部分 ROM 可能不执行此策略。")
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton("配置并核验") { _, _ ->
+                if (!requireShellOrToast()) return@setPositiveButton
+                PrivateStartupPolicy(shell, packageName).configure { ok, detail -> runOnUiThread {
+                    if (!isFinishing && !isDestroyed) showWorkspaceDiagnostics(
+                        (if (ok) "设置已保存并读回。请重启后仅解锁主屏，确认私人空间保持暂停；本提示不代表已验证此 ROM。\n" else "未能完成设置，请检查实际错误。\n") + detail)
+                } }
+            }.show()
     }
 
     private fun doStartWorkspace(ws: WorkspaceInfo) {

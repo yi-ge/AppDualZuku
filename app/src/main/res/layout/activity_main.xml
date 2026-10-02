@@ -348,6 +348,9 @@
 
                             </LinearLayout>
 
+                            <com.google.android.material.button.MaterialButton android:id="@+id/btnWorkspaceCompatibility"
+                                android:layout_width="match_parent" android:layout_height="wrap_content"
+                                android:text="@string/workspace_compatibility_check" style="@style/Widget.Material3.Button.OutlinedButton" />
                             <!-- Workspace list (nested inside card, non-scrollable RV) -->
                             <androidx.recyclerview.widget.RecyclerView
                                 android:id="@+id/rvWorkspaces"

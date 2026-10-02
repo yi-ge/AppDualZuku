@@ -14,13 +14,14 @@ class WorkspaceAdapter(
     private val onStart:  (WorkspaceInfo) -> Unit,
     private val onStop:   (WorkspaceInfo) -> Unit,
     private val onRemove: (WorkspaceInfo) -> Unit,
-    private val onRepair: (WorkspaceInfo) -> Unit
+    private val onRepair: (WorkspaceInfo) -> Unit,
+    private val onPrivatePolicy: (WorkspaceInfo) -> Unit
 ) : ListAdapter<WorkspaceInfo, WorkspaceAdapter.VH>(DIFF) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
         val v = LayoutInflater.from(parent.context)
             .inflate(R.layout.item_workspace, parent, false)
-        return VH(v, onStart, onStop, onRemove, onRepair)
+        return VH(v, onStart, onStop, onRemove, onRepair, onPrivatePolicy)
     }
 
     override fun onBindViewHolder(holder: VH, position: Int) = holder.bind(getItem(position))
@@ -30,7 +31,8 @@ class WorkspaceAdapter(
         private val onStart:  (WorkspaceInfo) -> Unit,
         private val onStop:   (WorkspaceInfo) -> Unit,
         private val onRemove: (WorkspaceInfo) -> Unit,
-        private val onRepair: (WorkspaceInfo) -> Unit
+        private val onRepair: (WorkspaceInfo) -> Unit,
+        private val onPrivatePolicy: (WorkspaceInfo) -> Unit
     ) : RecyclerView.ViewHolder(itemView) {
 
         private val tvName:       TextView       = itemView.findViewById(R.id.tvWsName)
@@ -64,6 +66,9 @@ class WorkspaceAdapter(
             repair.visibility = if (ws.isLegacy || ws.isPrivate || (ws.isManaged && ws.ownerComponent?.startsWith("${ctx.packageName}/") == true)) View.VISIBLE else View.GONE
             repair.text = ctx.getString(if (ws.isLegacy) R.string.workspace_repair_label else R.string.workspace_check_label)
             repair.setOnClickListener { onRepair(ws) }
+            val policy: MaterialButton = itemView.findViewById(R.id.btnWsPrivatePolicy)
+            policy.visibility = if (ws.isPrivate) View.VISIBLE else View.GONE
+            policy.setOnClickListener { onPrivatePolicy(ws) }
             btnRemove.setOnClickListener { onRemove(ws) }
         }
     }
