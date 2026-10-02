@@ -32,7 +32,10 @@ class WorkspaceShortcutActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        target = WorkspaceShortcuts.read(this, intent.getStringExtra(WorkspaceShortcuts.EXTRA_ID))
+        val uriId = intent.data?.takeIf { it.scheme == "appdual-workspace" && it.host == "launch" }?.lastPathSegment
+        val extraId = intent.getStringExtra(WorkspaceShortcuts.EXTRA_ID)
+        target = if (uriId != null && extraId != null && uriId != extraId) null
+            else WorkspaceShortcuts.read(this, uriId ?: extraId)
         val configured = target
         if (configured == null) { fail(getString(R.string.shortcut_invalid)); return }
         if (WorkspaceDisplayModes.get(this, configured) == WorkspaceDisplayMode.TABLET) {
@@ -40,6 +43,7 @@ class WorkspaceShortcutActivity : AppCompatActivity() {
             finish()
             return
         }
+        if (ManagedProfileLauncher.start(this, configured)) { finish(); return }
         setContentView(R.layout.activity_workspace_launch)
         findViewById<TextView>(R.id.launchTitle).text = getString(R.string.workspace_launch_title, configured.label)
         openingStatus = findViewById(R.id.launchStatus)
@@ -60,6 +64,13 @@ class WorkspaceShortcutActivity : AppCompatActivity() {
             handler.postDelayed({ retryConnection(remaining - 1) }, 500)
         }
         retryConnection(30)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        // OEM Launcher 可能复用同一个桥接 Activity；必须重新读取本次目标，不能沿用上一空间。
+        setIntent(intent)
+        recreate()
     }
 
     private fun connect() {
@@ -120,7 +131,7 @@ class WorkspaceShortcutActivity : AppCompatActivity() {
                 WorkspaceRepository(requireNotNull(shell), packageName).startWorkspace(configured.userId, onProgress = { message ->
                     runOnUiThread { if (!isFinishing && !errorShown) openingStatus?.text = message }
                 }) { ok, detail ->
-                    runOnUiThread { if (!isFinishing) { if (ok) resolve() else fail(detail, detail.contains("空间尚未解锁")) } }
+                    runOnUiThread { if (!isFinishing && !isDestroyed) { if (ok) resolve() else fail(detail, detail.contains("空间尚未解锁")) } }
                 }
             }
         }

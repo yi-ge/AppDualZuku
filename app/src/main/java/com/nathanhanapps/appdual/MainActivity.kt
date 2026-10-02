@@ -131,6 +131,15 @@ class MainActivity : AppCompatActivity() {
         if (intent.getStringExtra("appdual_page") == "spaces") binding.bottomNav.selectedItemId = R.id.nav_settings
     }
 
+    override fun onResume() {
+        super.onResume()
+        // 从系统验证、Shizuku 或桌面返回时，空间状态可能已改变，不能继续显示旧缓存。
+        if (::wsRepo.isInitialized && requireShellOrToast(silent = true)) {
+            loadWorkspaces()
+            updateAllWorkspaceStatuses()
+        }
+    }
+
     private var appsReloadedWithFocus = false
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
@@ -976,6 +985,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun launchApp(userId: Int, packageName: String) {
+        val managed = cachedWorkspaces.find { it.userId == userId && it.isManaged }
+        if (managed?.serialNumber != null && ManagedProfileLauncher.start(this,
+                WorkspaceShortcutTarget(userId, managed.serialNumber, packageName, packageName, managed.userType))) return
         if (!requireShellOrToast()) return
         val workspace = cachedWorkspaces.find { it.userId == userId }
         if (workspace != null && workspace.serialNumber != null) {

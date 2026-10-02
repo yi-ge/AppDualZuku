@@ -1,7 +1,7 @@
 package com.nathanhanapps.appdual
 
 /** User IDs can be reused after deletion; a shortcut must bind to the original serial number. */
-data class WorkspaceShortcutTarget(val userId: Int, val serialNumber: Long, val packageName: String, val label: String) {
+data class WorkspaceShortcutTarget(val userId: Int, val serialNumber: Long, val packageName: String, val label: String, val userType: String? = null) {
     init {
         require(userId > 0 && serialNumber >= 0)
         require(Regex("[A-Za-z0-9_]+(?:\\.[A-Za-z0-9_]+)+").matches(packageName))
